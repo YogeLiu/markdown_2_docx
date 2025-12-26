@@ -80,7 +80,23 @@ def export():
 
     # 处理 $ formula $ => $formula$ (去除$与公式之间的空格)
     # 使用负向断言避免匹配 $$ 块级公式
-    cleaned_md = re.sub(r"(?<!\$)\$ +(.+?) +\$(?!\$)", r"$\1$", cleaned_md)
+    # cleaned_md = re.sub(r"(?<!\$)\$ +(.+?) +\$(?!\$)", r"$\1$", cleaned_md)
+
+    # 将矩阵环境转换为 \left...\right 形式，解决 Word 中竖线太短的问题
+    # vmatrix -> \left| \begin{matrix}...\end{matrix} \right|
+    cleaned_md = re.sub(
+        r"\\begin\{vmatrix\}(.*?)\\end\{vmatrix\}",
+        r"\\left| \\begin{matrix}\1\\end{matrix} \\right|",
+        cleaned_md,
+        flags=re.DOTALL,
+    )
+    # Vmatrix -> \left\| \begin{matrix}...\end{matrix} \right\|
+    cleaned_md = re.sub(
+        r"\\begin\{Vmatrix\}(.*?)\\end\{Vmatrix\}",
+        r"\\left\\| \\begin{matrix}\1\\end{matrix} \\right\\|",
+        cleaned_md,
+        flags=re.DOTALL,
+    )
 
     with tempfile.NamedTemporaryFile(suffix=".md", delete=False) as f_in:
         f_in.write(cleaned_md.encode("utf-8"))
