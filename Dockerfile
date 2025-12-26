@@ -14,7 +14,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 COPY requirements.txt .
 
 # 安装所有依赖（合并为一个 RUN 减少镜像层数）
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN sed -i 's|deb.debian.org|mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update && apt-get install -y --no-install-recommends \
     # Pandoc
     pandoc \
     # Node.js (用于 mermaid-cli)
@@ -35,10 +36,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # 其他工具
     curl \
     && rm -rf /var/lib/apt/lists/* \
-    # 安装 mermaid-cli
+    # 设置 npm 清华源并安装 mermaid-cli
+    && npm config set registry https://registry.npmmirror.com \
     && npm install -g @mermaid-js/mermaid-cli \
     && npm cache clean --force \
-    # 安装 Python 依赖
+    # 安装 Python 依赖（已使用清华源）
     && pip install --no-cache-dir --index-url https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt \
     && pip install --no-cache-dir --index-url https://pypi.tuna.tsinghua.edu.cn/simple pymdown-extensions pygments gunicorn
 
