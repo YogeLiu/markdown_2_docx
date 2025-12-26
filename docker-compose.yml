@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  markdown-converter:
+    build: .
+    container_name: markdown-to-docx
+    ports:
+      - "8055:8055"
+    restart: unless-stopped
+    environment:
+      - FLASK_ENV=production
+    # 可选：挂载配置文件以便修改
+    # volumes:
+    #   - ./reference.docx:/app/reference.docx
+    #   - ./pygments.theme:/app/pygments.theme
+
