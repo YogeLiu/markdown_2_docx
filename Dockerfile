@@ -18,9 +18,6 @@ RUN sed -i 's|deb.debian.org|mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.li
     && apt-get update && apt-get install -y --no-install-recommends \
     # Pandoc
     pandoc \
-    # Node.js (用于 mermaid-cli)
-    nodejs \
-    npm \
     # WeasyPrint 依赖
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
@@ -33,21 +30,14 @@ RUN sed -i 's|deb.debian.org|mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.li
     texlive-lang-chinese \
     # 中文字体
     fonts-noto-cjk \
-    # 其他工具
-    curl \
     && rm -rf /var/lib/apt/lists/* \
-    # 设置 npm 清华源并安装 mermaid-cli
-    && npm config set registry https://registry.npmmirror.com \
-    && npm install -g @mermaid-js/mermaid-cli \
-    && npm cache clean --force \
-    # 安装 Python 依赖（已使用清华源）
+    # 安装 Python 依赖
     && pip install --no-cache-dir --index-url https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt \
     && pip install --no-cache-dir --index-url https://pypi.tuna.tsinghua.edu.cn/simple pymdown-extensions pygments gunicorn
 
 # 复制应用文件
 COPY app.py .
 COPY convert_md_to_docx.py .
-COPY mermaid_filter.lua .
 COPY pygments.theme .
 COPY reference.docx .
 

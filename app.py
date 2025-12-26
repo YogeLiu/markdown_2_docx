@@ -1,9 +1,6 @@
 import os
 import re
-import base64
-import subprocess
 import tempfile
-import uuid
 
 from flask import Flask, render_template, request, send_file, make_response, jsonify
 import markdown  # 用于预览时把 markdown 转为 HTML
@@ -30,28 +27,6 @@ def index():
     return render_template("index.html")
 
 
-def generate_mermaid_image(mermaid_code: str) -> str:
-    """
-    调用 mermaid-cli，将 mermaid_code 生成 PNG，并返回 base64 字符串。
-    """
-    with tempfile.NamedTemporaryFile(suffix=".mmd", delete=False) as f_in:
-        f_in.write(mermaid_code.encode("utf-8"))
-        mmd_path = f_in.name
-
-    png_path = mmd_path.replace(".mmd", ".png")
-
-    cmd = ["mmdc", "-i", mmd_path, "-o", png_path]
-    subprocess.run(cmd, check=True)
-
-    with open(png_path, "rb") as f:
-        data = f.read()
-
-    os.remove(mmd_path)
-    os.remove(png_path)
-
-    return base64.b64encode(data).decode("utf-8")
-
-
 @app.route("/preview", methods=["POST"])
 def preview():
     """
@@ -63,22 +38,9 @@ def preview():
     md_text = re.sub(r"([^\n])(\s*)\\\[(.*?)\\\]([^\n])", r"\1\n\n\\[\3\\]\n\n\4", md_text, flags=re.DOTALL)
     md_text = re.sub(r"^(\s*)\\\[(.*?)\\\](\s*)(?=\n|$)", r"\n\\[\2\\]\n", md_text, flags=re.MULTILINE | re.DOTALL)
 
-    # 将 mermaid/flowchart/sequence 代码块替换为内嵌图像
-    pattern = r"```(mermaid|sequence|flowchart)(.*?)```"
-
-    def repl(match):
-        mermaid_code = match.group(2).strip()
-        try:
-            b64 = generate_mermaid_image(mermaid_code)
-            return f"\n![](data:image/png;base64,{b64})\n"
-        except Exception as e:
-            return f"\n**[Mermaid Error: {str(e)}]**\n"
-
-    replaced_md = re.sub(pattern, repl, md_text, flags=re.DOTALL)
-
     # Markdown 转 HTML
     html = markdown.markdown(
-        replaced_md,
+        md_text,
         extensions=["fenced_code", "codehilite", "tables", "nl2br", "pymdownx.arithmatex"],
         extension_configs={
             "codehilite": {
@@ -132,14 +94,12 @@ def export():
     input_format = "markdown+raw_tex+tex_math_dollars+tex_math_double_backslash"
 
     extra_args_for_pdf = [
-        "--lua-filter=mermaid_filter.lua",
         "--pdf-engine=xelatex",
         "-V",
         "mainfont=Noto Sans CJK SC",
         "--highlight-style=pygments",
     ]
     extra_args_for_docx = [
-        "--lua-filter=mermaid_filter.lua",
         "--highlight-style=pygments",
         "--reference-doc=reference.docx",
     ]
