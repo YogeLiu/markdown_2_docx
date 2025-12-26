@@ -98,6 +98,63 @@ def export():
         flags=re.DOTALL,
     )
 
+    # 修复大括号方程组间距问题：去除 \left\{ 后面的空白并插入负向空格 \!
+    # 这样可以让 Word(OMML) 中大括号与后续内容紧凑对齐
+    cleaned_md = re.sub(
+        r"\\left\\\{\s+",
+        r"\\left\\{\\!",
+        cleaned_md,
+    )
+    # 同样处理 \right\} 前面的空白
+    cleaned_md = re.sub(
+        r"\s+\\right\\\}",
+        r"\\!\\right\\}",
+        cleaned_md,
+    )
+
+    # 处理 cases 环境：Pandoc 对 cases 的处理有时也会有间距问题
+    # 将 cases 转换为 \left\{ \begin{array}{ll}...\end{array} \right. 形式
+    def convert_cases(match):
+        content = match.group(1)
+        # 将 & 分隔的项保持不变，\\ 换行保持不变
+        return r"\left\{\begin{array}{ll}" + content + r"\end{array}\right."
+
+    cleaned_md = re.sub(
+        r"\\begin\{cases\}(.*?)\\end\{cases\}",
+        convert_cases,
+        cleaned_md,
+        flags=re.DOTALL,
+    )
+
+    # 处理 aligned 环境：将 \left\{\begin{aligned}...\end{aligned}\right. 转换为 array 格式
+    # aligned 环境在 Word(OMML) 中渲染不稳定，array 更可靠
+    def convert_aligned_to_array(match):
+        content = match.group(1)
+        # aligned 中每行开头的 & 是对齐标记，在 array{l} 中不需要
+        # 去掉每行开头的 &（可能前面有空白）
+        content = re.sub(r"(^|\\\\)\s*&", r"\1", content)
+        return r"\left\{\begin{array}{l}" + content + r"\end{array}\right."
+
+    cleaned_md = re.sub(
+        r"\\left\\\{\\begin\{aligned\}(.*?)\\end\{aligned\}\\right\.",
+        convert_aligned_to_array,
+        cleaned_md,
+        flags=re.DOTALL,
+    )
+
+    # 也处理独立的 aligned 环境（不在 \left\{ 中的）
+    def convert_standalone_aligned(match):
+        content = match.group(1)
+        content = re.sub(r"(^|\\\\)\s*&", r"\1", content)
+        return r"\begin{array}{l}" + content + r"\end{array}"
+
+    cleaned_md = re.sub(
+        r"\\begin\{aligned\}(.*?)\\end\{aligned\}",
+        convert_standalone_aligned,
+        cleaned_md,
+        flags=re.DOTALL,
+    )
+
     with tempfile.NamedTemporaryFile(suffix=".md", delete=False) as f_in:
         f_in.write(cleaned_md.encode("utf-8"))
         md_path = f_in.name
