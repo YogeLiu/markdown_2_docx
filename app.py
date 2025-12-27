@@ -2,32 +2,16 @@ import os
 import re
 import tempfile
 
-from flask import Flask, render_template, request, send_file, make_response, jsonify
+from flask import Flask, Blueprint, request, send_file, make_response, jsonify
 import markdown  # 用于预览时把 markdown 转为 HTML
 import pypandoc  # 用于导出 docx/pdf
 
-# 需要安装的依赖：
-# pip install pygments pymdown-extensions
-
-try:
-    from weasyprint import HTML
-
-    WEASYPRINT_AVAILABLE = True
-except (ImportError, OSError):
-    WEASYPRINT_AVAILABLE = False
 
 app = Flask(__name__)
+bp = Blueprint("doc_converter", __name__, url_prefix="/doc_converter/v1")
 
 
-@app.route("/")
-def index():
-    """
-    展示首页
-    """
-    return render_template("index.html")
-
-
-@app.route("/preview", methods=["POST"])
+@bp.route("/preview", methods=["POST"])
 def preview():
     """
     将用户输入的Markdown先预处理，再转为HTML。
@@ -54,7 +38,46 @@ def preview():
     return html
 
 
-@app.route("/export", methods=["POST"])
+@bp.route("/convert", methods=["POST"])
+def convert():
+    """
+    将 Markdown 转换为 LaTeX 和 MathML 格式返回。
+    """
+    md_text = request.form.get("markdown_input", "")
+
+    if not md_text:
+        return jsonify({"error": "markdown_input 不能为空"}), 400
+
+    input_format = "markdown+raw_tex+tex_math_dollars+tex_math_double_backslash"
+
+    try:
+        # 转换为 LaTeX
+        latex_output = pypandoc.convert_text(
+            md_text,
+            "latex",
+            format=input_format,
+        )
+
+        # 转换为 HTML（包含 MathML）
+        mathml_output = pypandoc.convert_text(
+            md_text,
+            "html",
+            format=input_format,
+            extra_args=["--mathml"],
+        )
+
+        return jsonify(
+            {
+                "latex": latex_output,
+                "mathml": mathml_output,
+            }
+        )
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/export", methods=["POST"])
 def export():
     """
     导出文件为 docx 或 pdf。
@@ -200,6 +223,10 @@ def export():
 
     os.remove(md_path)
     return resp
+
+
+# 注册 Blueprint
+app.register_blueprint(bp)
 
 
 if __name__ == "__main__":
